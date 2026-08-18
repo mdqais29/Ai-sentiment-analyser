@@ -2,7 +2,7 @@
 
 A web-based tool that classifies text as **positive**, **negative**, or neutral using NLP and AI APIs, with scoring for output consistency and reliability.
 
-**Live Demo:** [Add your live link here]()
+**Live Demo:** [https://ai-sentiment-analyser.netlify.app/]()
 
 ![AI Sentiment Analyser](./docs/screenshot.png)
 
