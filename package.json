@@ -1,0 +1,7 @@
+{
+  "name": "ai-sentiment-analyser",
+  "private": true,
+  "dependencies": {
+    "vader-sentiment": "^1.1.3"
+  }
+}

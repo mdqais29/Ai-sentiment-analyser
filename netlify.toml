@@ -1,13 +1,11 @@
 [build]
-  command = "pip install -r requirements.txt"
+  command = "npm install"
   publish = "public"
   functions = "netlify/functions"
 
-[build.environment]
-  PYTHON_VERSION = "3.11"
-
 [functions]
-  included_files = ["app/**"]
+  node_bundler = "esbuild"
+  included_files = ["netlify/functions/lib/**"]
 
 [[redirects]]
   from = "/api/analyze"

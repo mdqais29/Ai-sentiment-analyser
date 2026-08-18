@@ -12,7 +12,7 @@ A web-based tool that classifies text as **positive**, **negative**, or neutral 
 - Optional Hugging Face API integration
 - Consistency and reliability scoring
 - Clean, responsive web UI
-- Deployable on Vercel or Netlify
+- Deployable on Vercel (Python API) or Netlify (Node.js API)
 
 ## Run Locally
 
