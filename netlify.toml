@@ -5,21 +5,25 @@
 
 [build.environment]
   PYTHON_VERSION = "3.11"
+  NLTK_DATA = "./nltk_data"
 
 [[redirects]]
   from = "/api/analyze"
   to = "/.netlify/functions/analyze"
   status = 200
-
-[[redirects]]
-  from = "/api/health"
-  to = "/.netlify/functions/analyze"
-  status = 200
+  force = true
 
 [[redirects]]
   from = "/api/samples"
   to = "/.netlify/functions/analyze"
   status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/health"
+  to = "/.netlify/functions/analyze"
+  status = 200
+  force = true
 
 [[redirects]]
   from = "/*"

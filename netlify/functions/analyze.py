@@ -1,9 +1,16 @@
 """Netlify serverless function for sentiment analysis."""
 
 import json
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
 from app.analyzer import SentimentAnalyzer
 
-analyzer = SentimentAnalyzer()
+_analyzer = None
 
 SAMPLE_TEXTS = [
     "I absolutely love this product! Best purchase I've ever made.",
@@ -21,33 +28,35 @@ HEADERS = {
 }
 
 
+def get_analyzer():
+    global _analyzer
+    if _analyzer is None:
+        _analyzer = SentimentAnalyzer()
+    return _analyzer
+
+
 def handler(event, context):
     method = event.get("httpMethod", "GET")
     path = event.get("path", "")
+    raw_path = event.get("rawPath", path)
 
     if method == "OPTIONS":
         return {"statusCode": 204, "headers": HEADERS, "body": ""}
 
     if method == "GET":
-        if path.endswith("/health"):
+        if raw_path.endswith("/health") or path.endswith("/health"):
             return {
                 "statusCode": 200,
                 "headers": HEADERS,
                 "body": json.dumps({"status": "ok", "service": "ai-sentiment-analyser"}),
             }
-        if path.endswith("/samples"):
-            return {
-                "statusCode": 200,
-                "headers": HEADERS,
-                "body": json.dumps({"samples": SAMPLE_TEXTS}),
-            }
         return {
-            "statusCode": 404,
+            "statusCode": 200,
             "headers": HEADERS,
-            "body": json.dumps({"error": "Not found"}),
+            "body": json.dumps({"samples": SAMPLE_TEXTS}),
         }
 
-    if method == "POST" and path.endswith("/analyze"):
+    if method == "POST":
         try:
             body = json.loads(event.get("body") or "{}")
         except json.JSONDecodeError:
@@ -61,6 +70,7 @@ def handler(event, context):
         texts = body.get("texts", [])
 
         try:
+            analyzer = get_analyzer()
             if texts:
                 results = [r.to_dict() for r in analyzer.analyze_batch(texts)]
                 return {

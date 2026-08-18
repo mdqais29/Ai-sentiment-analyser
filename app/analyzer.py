@@ -10,7 +10,16 @@ from __future__ import annotations
 import os
 import re
 from dataclasses import asdict, dataclass
+from pathlib import Path
 from typing import Any
+
+# Bundle NLTK data for serverless (Vercel/Netlify)
+_nltk_dir = Path(__file__).resolve().parent.parent / "nltk_data"
+if _nltk_dir.exists():
+    os.environ.setdefault("NLTK_DATA", str(_nltk_dir))
+    import nltk
+
+    nltk.data.path.insert(0, str(_nltk_dir))
 
 from textblob import TextBlob
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer

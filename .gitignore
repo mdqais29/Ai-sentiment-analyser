@@ -5,7 +5,7 @@ __pycache__/
 .venv/
 venv/
 env/
-.nltk_data/
+nltk_data/
 .vercel/
 .netlify/
 dist/

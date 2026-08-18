@@ -1,13 +1,6 @@
 {
-  "version": 2,
-  "builds": [
-    { "src": "api/analyze.py", "use": "@vercel/python" },
-    { "src": "public/**", "use": "@vercel/static" }
-  ],
-  "routes": [
-    { "src": "/api/analyze", "dest": "/api/analyze.py" },
-    { "src": "/api/health", "dest": "/api/analyze.py" },
-    { "src": "/api/samples", "dest": "/api/analyze.py" },
-    { "src": "/(.*)", "dest": "/public/$1" }
-  ]
+  "installCommand": "pip install -r requirements.txt && python setup_nltk.py",
+  "env": {
+    "NLTK_DATA": "./nltk_data"
+  }
 }

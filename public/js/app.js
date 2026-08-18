@@ -1,15 +1,5 @@
-const API_BASE = detectApiBase();
-
-function detectApiBase() {
-  const host = window.location.hostname;
-  if (host.includes("netlify")) {
-    return "/.netlify/functions/analyze";
-  }
-  if (host.includes("vercel") || host === "localhost" || host === "127.0.0.1") {
-    return "/api/analyze";
-  }
-  return "/api/analyze";
-}
+const API_ANALYZE = "/api/analyze";
+const API_SAMPLES = "/api/samples";
 
 const SENTIMENT_ICONS = {
   positive: "↑",
@@ -53,9 +43,9 @@ loadSamples();
 
 async function loadSamples() {
   try {
-    const res = await fetch(`${API_BASE.replace("/analyze", "/samples")}`);
+    const res = await fetch(API_SAMPLES);
     if (!res.ok) return;
-    const data = await res.json();
+    const data = await parseJsonResponse(res);
     renderSampleChips(data.samples || []);
   } catch {
     renderSampleChips([
@@ -95,13 +85,13 @@ async function analyze() {
   setLoading(true);
 
   try {
-    const res = await fetch(API_BASE, {
+    const res = await fetch(API_ANALYZE, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text }),
     });
 
-    const data = await res.json();
+    const data = await parseJsonResponse(res);
 
     if (!res.ok) {
       throw new Error(data.error || "Analysis failed");
@@ -181,4 +171,12 @@ function escapeHtml(str) {
   const div = document.createElement("div");
   div.textContent = str;
   return div.innerHTML;
+}
+
+async function parseJsonResponse(res) {
+  const contentType = res.headers.get("content-type") || "";
+  if (!contentType.includes("application/json")) {
+    throw new Error("API unavailable. Redeploy with backend functions enabled.");
+  }
+  return res.json();
 }
