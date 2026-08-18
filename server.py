@@ -4,12 +4,11 @@ import json
 import os
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import urlparse
 
-from app.analyzer import SentimentAnalyzer
+from app.api_handler import analyze_request, health_response, samples_response
 
 PUBLIC_DIR = Path(__file__).parent / "public"
-analyzer = SentimentAnalyzer()
 
 MIME_TYPES = {
     ".html": "text/html",
@@ -56,11 +55,11 @@ class Handler(BaseHTTPRequestHandler):
         path = parsed.path
 
         if path == "/api/health":
-            self._send_json(200, {"status": "ok", "service": "ai-sentiment-analyser"})
+            self._send_json(200, health_response())
             return
 
         if path == "/api/samples":
-            self._send_json(200, {"samples": SAMPLE_TEXTS})
+            self._send_json(200, samples_response())
             return
 
         if path in ("/", "/index.html"):
@@ -88,31 +87,8 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json(400, {"error": "Invalid JSON body"})
             return
 
-        text = payload.get("text", "").strip()
-        texts = payload.get("texts", [])
-
-        try:
-            if texts:
-                results = [r.to_dict() for r in analyzer.analyze_batch(texts)]
-                self._send_json(200, {"results": results})
-            elif text:
-                result = analyzer.analyze(text)
-                self._send_json(200, result.to_dict())
-            else:
-                self._send_json(400, {"error": "Provide 'text' or 'texts' in request body"})
-        except ValueError as exc:
-            self._send_json(400, {"error": str(exc)})
-        except Exception as exc:
-            self._send_json(500, {"error": f"Analysis failed: {exc}"})
-
-
-SAMPLE_TEXTS = [
-    "I absolutely love this product! Best purchase I've ever made.",
-    "This is the worst experience I've had. Completely disappointed.",
-    "The package arrived on Tuesday. It was a standard delivery.",
-    "Not bad, but could definitely be improved in several areas.",
-    "I'm thrilled with the customer support — they went above and beyond!",
-]
+        status, data = analyze_request(payload)
+        self._send_json(status, data)
 
 
 def main() -> None:

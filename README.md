@@ -8,7 +8,7 @@ A web-based tool that classifies text as **positive**, **negative**, or neutral 
 
 ## Features
 
-- Multi-model sentiment analysis (VADER + TextBlob)
+- Multi-model sentiment analysis (VADER + Lexicon NLP)
 - Optional Hugging Face API integration
 - Consistency and reliability scoring
 - Clean, responsive web UI
@@ -20,7 +20,6 @@ A web-based tool that classifies text as **positive**, **negative**, or neutral 
 python -m venv venv
 venv\Scripts\activate          # Windows
 pip install -r requirements.txt
-python setup_nltk.py
 python server.py
 ```
 
@@ -37,7 +36,7 @@ Content-Type: application/json
 
 ## Tech Stack
 
-Python · VADER · TextBlob · NLTK · HTML/CSS/JS
+Python · VADER · HTML/CSS/JS
 
 ## License
 

@@ -1,7 +1,7 @@
 """
 Multi-model sentiment analysis engine.
 
-Combines VADER, TextBlob, and optional Hugging Face Inference API
+Combines VADER, lexicon-based NLP, and optional Hugging Face Inference API
 to classify text and score consistency across models.
 """
 
@@ -10,21 +10,25 @@ from __future__ import annotations
 import os
 import re
 from dataclasses import asdict, dataclass
-from pathlib import Path
 from typing import Any
 
-# Bundle NLTK data for serverless (Vercel/Netlify)
-_nltk_dir = Path(__file__).resolve().parent.parent / "nltk_data"
-if _nltk_dir.exists():
-    os.environ.setdefault("NLTK_DATA", str(_nltk_dir))
-    import nltk
-
-    nltk.data.path.insert(0, str(_nltk_dir))
-
-from textblob import TextBlob
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 
 NEUTRAL_THRESHOLD = 0.05
+
+POSITIVE_WORDS = {
+    "good", "great", "excellent", "amazing", "awesome", "love", "loved", "loving",
+    "best", "happy", "fantastic", "wonderful", "brilliant", "perfect", "nice",
+    "thrilled", "delighted", "outstanding", "superb", "beautiful", "enjoy",
+    "enjoyed", "recommend", "recommended", "impressive", "satisfied", "pleased",
+}
+
+NEGATIVE_WORDS = {
+    "bad", "terrible", "awful", "horrible", "worst", "hate", "hated", "poor",
+    "disappointing", "disappointed", "angry", "upset", "useless", "broken",
+    "waste", "wasted", "fail", "failed", "ugly", "slow", "rude", "unhappy",
+    "frustrating", "frustrated", "annoying", "annoyed", "disgusting",
+}
 
 
 @dataclass
@@ -57,18 +61,10 @@ class AnalysisResult:
         }
 
 
-def _compound_to_label(compound: float) -> str:
-    if compound >= NEUTRAL_THRESHOLD:
+def _score_to_label(score: float) -> str:
+    if score >= NEUTRAL_THRESHOLD:
         return "positive"
-    if compound <= -NEUTRAL_THRESHOLD:
-        return "negative"
-    return "neutral"
-
-
-def _polarity_to_label(polarity: float) -> str:
-    if polarity > NEUTRAL_THRESHOLD:
-        return "positive"
-    if polarity < -NEUTRAL_THRESHOLD:
+    if score <= -NEUTRAL_THRESHOLD:
         return "negative"
     return "neutral"
 
@@ -99,9 +95,10 @@ class SentimentAnalyzer:
         if not text:
             raise ValueError("Text cannot be empty")
 
-        model_results: list[ModelResult] = []
-        model_results.append(self._analyze_vader(text))
-        model_results.append(self._analyze_textblob(text))
+        model_results: list[ModelResult] = [
+            self._analyze_vader(text),
+            self._analyze_lexicon(text),
+        ]
 
         hf_result = self._analyze_huggingface(text)
         if hf_result:
@@ -135,7 +132,7 @@ class SentimentAnalyzer:
     def _analyze_vader(self, text: str) -> ModelResult:
         scores = self._vader.polarity_scores(text)
         compound = scores["compound"]
-        label = _compound_to_label(compound)
+        label = _score_to_label(compound)
         confidence = min(abs(compound), 1.0)
 
         return ModelResult(
@@ -150,23 +147,34 @@ class SentimentAnalyzer:
             },
         )
 
-    def _analyze_textblob(self, text: str) -> ModelResult:
-        blob = TextBlob(text)
-        polarity = blob.sentiment.polarity
-        subjectivity = blob.sentiment.subjectivity
-        label = _polarity_to_label(polarity)
-        confidence = min(abs(polarity) + subjectivity * 0.3, 1.0)
+    def _analyze_lexicon(self, text: str) -> ModelResult:
+        words = {w.strip(".,!?;:'\"").lower() for w in re.findall(r"\b\w+\b", text)}
+        pos_hits = len(words & POSITIVE_WORDS)
+        neg_hits = len(words & NEGATIVE_WORDS)
+        total_hits = pos_hits + neg_hits
 
-        pos = max(polarity, 0)
-        neg = max(-polarity, 0)
-        neu = 1.0 - pos - neg if polarity != 0 else 1.0
+        if total_hits == 0:
+            score = 0.0
+            confidence = 0.35
+        else:
+            score = (pos_hits - neg_hits) / total_hits
+            confidence = min(abs(score) + total_hits * 0.1, 1.0)
+
+        label = _score_to_label(score)
+        pos = max(score, 0)
+        neg = max(-score, 0)
+        neu = max(1.0 - pos - neg, 0.0)
 
         return ModelResult(
-            model="TextBlob",
+            model="Lexicon",
             label=label,
             confidence=round(confidence, 4),
             scores=_normalize_scores(pos, neg, neu)
-            | {"polarity": round(polarity, 4), "subjectivity": round(subjectivity, 4)},
+            | {
+                "positive_hits": pos_hits,
+                "negative_hits": neg_hits,
+                "score": round(score, 4),
+            },
         )
 
     def _analyze_huggingface(self, text: str) -> ModelResult | None:
@@ -174,9 +182,8 @@ class SentimentAnalyzer:
             return None
 
         try:
-            import urllib.error
-            import urllib.request
             import json
+            import urllib.request
 
             url = f"https://api-inference.huggingface.co/models/{self._hf_model}"
             payload = json.dumps({"inputs": text[:512]}).encode("utf-8")
@@ -232,7 +239,6 @@ class SentimentAnalyzer:
         return final_label, final_confidence
 
     def _compute_consistency(self, results: list[ModelResult]) -> float:
-        """Score 0-100 based on how much models agree on the label."""
         if len(results) < 2:
             return 100.0
 
@@ -249,10 +255,6 @@ class SentimentAnalyzer:
     def _compute_reliability(
         self, results: list[ModelResult], consistency: float, text: str
     ) -> float:
-        """
-        Proxy for output accuracy: combines model agreement, confidence,
-        and text quality signals (length, not too short).
-        """
         avg_confidence = sum(r.confidence for r in results) / len(results)
         word_count = len(re.findall(r"\b\w+\b", text))
 
